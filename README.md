@@ -37,8 +37,8 @@ This repository models the layout of your **Personal Skills** directory (`.copil
 .copilot/skills/
 ├── README.md                      # This documentation
 └── image-generator/               # Example skill folder
-    ├── SKILL.md                   # Core instructions and behavior rules for the skill
-    └── generate.py                # Associated script executed dynamically by the AI agent
+   ├── SKILL.md                   # Core instructions and behavior rules for the skill, including seamless tile generation
+   └── generate.py                # Associated script executed dynamically by the AI agent
 ```
 
 ## How to Install and Use
