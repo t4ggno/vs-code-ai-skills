@@ -3,8 +3,10 @@ import base64
 import os
 import sys
 from io import BytesIO
+from pathlib import Path
 
 import requests
+from dotenv import load_dotenv
 from openai import OpenAI
 from PIL import Image
 
@@ -164,6 +166,19 @@ def build_evaluation_prompt(criteria, tileable, preview_grid):
         "Reply ONLY with 'YES' or 'NO: [Reason]'."
     )
 
+
+def load_openai_api_key():
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if api_key:
+        return api_key
+
+    env_file = Path(__file__).resolve().parent.parent / ".env"
+    if env_file.exists():
+        load_dotenv(env_file, override=False)
+
+    return os.environ.get("OPENAI_API_KEY")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Generate and evaluate an image using OpenAI.")
     parser.add_argument("prompt", help="The prompt for the image generation")
@@ -181,13 +196,13 @@ def main():
     parser.add_argument("--poll-interval", type=int, default=2)
     parser.add_argument("--timeout", type=int, default=180)
     parser.add_argument("--vision-model", default="gpt-5.4", dest="vision_model")
-    
+
     args = parser.parse_args()
 
-    api_key = os.environ.get("OPENAI_API_KEY")
+    api_key = load_openai_api_key()
     if not api_key:
         print("Error: OPENAI_API_KEY environment variable is missing.", file=sys.stderr)
-        print("Please ensure your API key is set in the environment or await the next Windows restart if previously set.", file=sys.stderr)
+        print("Please set it in your environment or add it to the workspace .env file.", file=sys.stderr)
         sys.exit(1)
 
     client = OpenAI(api_key=api_key)

@@ -36,9 +36,24 @@ This repository models the layout of your **Personal Skills** directory (`.copil
 ```text
 .copilot/skills/
 ├── README.md                      # This documentation
-└── image-generator/               # Example skill folder
-   ├── SKILL.md                   # Core instructions and behavior rules for the skill, including seamless tile generation
-   └── generate.py                # Associated script executed dynamically by the AI agent
+├── image-generator/               # Image generation skill
+│   ├── SKILL.md
+│   └── generate.py
+├── math-calculator/               # Math calculation skill
+│   ├── SKILL.md
+│   └── calculate.py
+├── pdf-text-extractor/            # PDF text extraction skill
+│   ├── SKILL.md
+│   └── extract.py
+├── system-info/                   # Hardware/OS info skill
+│   ├── SKILL.md
+│   └── info.py
+├── uuid-generator/                # UUID generation skill
+│   ├── SKILL.md
+│   └── generate.py
+└── web-scraper/                   # Simple web scraper skill
+    ├── SKILL.md
+    └── fetch.py
 ```
 
 ## How to Install and Use
