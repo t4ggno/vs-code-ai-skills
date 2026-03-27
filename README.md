@@ -45,6 +45,9 @@ This repository models the layout of your **Personal Skills** directory (`.copil
 ├── pdf-text-extractor/            # PDF text extraction skill
 │   ├── SKILL.md
 │   └── extract.py
+├── random-generator/              # General random and fake data generation skill
+│   ├── SKILL.md
+│   └── generate.py
 ├── system-info/                   # Hardware/OS info skill
 │   ├── SKILL.md
 │   └── info.py
