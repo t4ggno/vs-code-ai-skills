@@ -36,28 +36,57 @@ This repository models the layout of your **Personal Skills** directory (`.copil
 ```text
 .copilot/skills/
 ├── README.md                      # This documentation
+├── browser-scraper/               # Browser-powered web scraping and screenshots
+│   ├── SKILL.md
+│   └── scrape.py
+├── continuous-task/               # Continuous or exhaustive agent workflow skill
+│   ├── SKILL.md
+│   └── continuous_agent.py
 ├── image-generator/               # Image generation skill
 │   ├── SKILL.md
 │   └── generate.py
 ├── math-calculator/               # Math calculation skill
 │   ├── SKILL.md
 │   └── calculate.py
+├── openstreetmap/                 # OpenStreetMap geocoding and map data skill
+│   ├── SKILL.md
+│   └── query.py
 ├── pdf-text-extractor/            # PDF text extraction skill
 │   ├── SKILL.md
 │   └── extract.py
 ├── random-generator/              # General random and fake data generation skill
 │   ├── SKILL.md
 │   └── generate.py
+├── rest-api-client/               # HTTP API calling and seed-user auth skill
+│   ├── SKILL.md
+│   └── call_api.py
+├── sql-query-runner/              # Read-focused SQL runner skill
+│   ├── SKILL.md
+│   └── query.py
 ├── system-info/                   # Hardware/OS info skill
 │   ├── SKILL.md
 │   └── info.py
 ├── uuid-generator/                # UUID generation skill
 │   ├── SKILL.md
 │   └── generate.py
-└── web-scraper/                   # Simple web scraper skill
-    ├── SKILL.md
-    └── fetch.py
+└── copilot-memory-workflow/       # Memory organization and persistence workflow skill
+   └── SKILL.md
 ```
+
+## Included Skills
+
+- `browser-scraper` - loads JavaScript-heavy pages in a browser and extracts structured data
+- `continuous-task` - keeps long-running or exhaustive agent tasks moving until they are done
+- `copilot-memory-workflow` - helps organize user, session, and repository memory
+- `image-generator` - creates images and textures with OpenAI image models
+- `math-calculator` - evaluates formulas safely with Python math
+- `openstreetmap` - queries Nominatim and Overpass for geocoding, verification, boundaries, nearby POIs, and raw OSM data
+- `pdf-text-extractor` - extracts text from PDF files
+- `random-generator` - generates strings, numbers, ranges, choices, and Faker-backed values
+- `rest-api-client` - calls HTTP APIs with headers, query params, bodies, and seed-user auth flows
+- `sql-query-runner` - runs compact SQL queries against SQLite or DSN-backed databases
+- `system-info` - reports local OS, CPU, and Python runtime information
+- `uuid-generator` - generates UUIDs across common versions
 
 ## How to Install and Use
 
