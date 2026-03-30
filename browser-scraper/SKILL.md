@@ -1,84 +1,42 @@
 ---
 name: browser-scraper
-description: Loads JavaScript-heavy pages in a real browser, supports profile or seeded-login authentication, captures screenshots, and extracts visual-style signals for design and UX work.
+description: Renders JavaScript-heavy pages in a real browser, reuses authenticated sessions, and captures screenshots or style snapshots. Use when static fetch tools are insufficient for SPAs, login-protected flows, or visual UI inspection. Do not use it for static pages that can be fetched directly.
+argument-hint: <url> [what to extract, auth mode, selectors, screenshot needs]
 ---
 
-# Browser Scraper Skill
+# Browser Scraper
 
-Use this skill when a normal HTTP fetch is not enough because the page needs JavaScript, a browser session, an interactive login, or a visual capture of the current UI.
+1. Use this skill only when the page needs a real browser runtime, existing session state, an interactive login flow, or a screenshot/style capture.
+2. Execute the local script [scrape.py](./scrape.py) instead of improvising ad-hoc browser automation.
+3. Pick the lightest authentication option that works:
+	 - `--user-data-dir` to reuse an existing logged-in browser profile.
+	 - `--storage-state` to reuse a saved Playwright auth state.
+	 - `--login-url` with seeded credentials to perform a safe test login.
+4. Scope extraction tightly:
+	 - Use `--selector` to focus on the relevant container.
+	 - Use `--wait-for` or `--post-login-wait-for` to wait for a reliable ready signal.
+	 - Use `--max-chars` and `--max-links` to keep output compact.
+5. If the task is visual or UX-oriented, capture the page deliberately:
+	 - Use `--screenshot-path` with `--screenshot-mode viewport|full-page|element`.
+	 - Use `--capture-style` or `--style-snapshot-path` when the goal is design analysis.
+	 - Use `--hide-selector` or `--screenshot-style` to suppress banners or overlays.
+6. Save durable login state with `--save-storage-state` only when the same flow will be reused.
+7. Never store or repeat secrets in chat. Store only reusable non-secret details such as selectors, login success conditions, or storage-state file paths.
 
-It is especially useful for:
+## Common invocations
 
-- Scraping SPAs and dashboards that render client-side.
-- Reusing an existing logged-in browser profile.
-- Logging in with a seeded user and then extracting authenticated page content.
-- Saving a browser storage state for later authenticated runs.
-- Capturing full-page, viewport, or element screenshots.
-- Extracting style fingerprints such as colors, fonts, CSS variables, and sample UI elements.
-- Understanding the current visual language of a website before redesigning it.
+- Render a dashboard after hydration:
+	`python ./scrape.py https://example.com/dashboard --wait-for "[data-ready='true']"`
+- Capture a visual style snapshot plus screenshot:
+	`python ./scrape.py https://example.com --capture-style --style-snapshot-path .artifacts/style.json --screenshot-path .artifacts/homepage.png --screenshot-mode full-page`
+- Reuse a logged-in browser profile:
+	`python ./scrape.py https://example.com/account --user-data-dir "<browser-profile-dir>"`
+- Login with a seeded user and persist auth state:
+	`python ./scrape.py https://example.com/admin --login-url https://example.com/login --seed-username seeded-admin@example.com --seed-password <seed-password> --post-login-wait-for "nav" --save-storage-state .auth/seed-admin.json`
 
-## Authentication guidance
+## Guardrails
 
-Prefer one of these lean options:
-
-- `--user-data-dir`: Reuse an existing browser profile when you are already logged in.
-- `--storage-state`: Reuse a previously saved Playwright auth state.
-- `--login-url` with seeded credentials: Perform a login flow using a seed/test account, then save the resulting state with `--save-storage-state` if needed.
-
-When the authentication flow is discovered and likely to be reused, store only the durable non-secret details in memory, such as selectors, the success condition, and the storage-state file path. Never store passwords, tokens, cookies, or storage-state contents.
-
-## Setup
-
-Install the dependencies from `requirements.txt`, then install the browser runtime once:
-
-```bash
-python -m playwright install chromium
-```
-
-## Usage
-
-Scrape a page after JavaScript finishes rendering:
-
-```bash
-python c:/Users/ehrha/.copilot/skills/browser-scraper/scrape.py https://example.com/dashboard --wait-for "[data-ready='true']"
-```
-
-### Capture the current visual style and save a screenshot
-
-```bash
-python c:/Users/ehrha/.copilot/skills/browser-scraper/scrape.py https://example.com --capture-style --screenshot-path .artifacts/example-homepage.png --screenshot-mode full-page --viewport-width 1440 --viewport-height 900 --hide-selector ".cookie-banner"
-```
-
-### Capture a specific element for design analysis
-
-```bash
-python c:/Users/ehrha/.copilot/skills/browser-scraper/scrape.py https://example.com/pricing --selector "main" --screenshot-path .artifacts/pricing-card.png --screenshot-mode element --screenshot-selector ".pricing-card.featured" --capture-style
-```
-
-### Reuse an existing browser profile
-
-```bash
-python c:/Users/ehrha/.copilot/skills/browser-scraper/scrape.py https://example.com/account --user-data-dir "C:/Users/ehrha/AppData/Local/Microsoft/Edge/User Data"
-```
-
-### Login with a seeded user and save state
-
-```bash
-python c:/Users/ehrha/.copilot/skills/browser-scraper/scrape.py https://example.com/admin --login-url https://example.com/login --seed-username seeded-admin@example.com --seed-password Passw0rd! --post-login-wait-for "nav" --save-storage-state .auth/seed-admin.json
-```
-
-### Login, capture the dashboard style, and save the style snapshot JSON
-
-```bash
-python c:/Users/ehrha/.copilot/skills/browser-scraper/scrape.py https://example.com/admin --login-url https://example.com/login --seed-username seeded-admin@example.com --seed-password Passw0rd! --post-login-wait-for "nav" --capture-style --style-snapshot-path .artifacts/admin-style.json --screenshot-path .artifacts/admin-dashboard.png --screenshot-mode viewport
-```
-
-## Notes
-
-- The scraper extracts visible text, not raw HTML by default.
-- Use `--selector` to focus extraction on a specific panel or container.
-- The output can include page title, final URL, visible text, a capped link list, a screenshot path, and a style snapshot.
-- Screenshot capture is based on Playwright's screenshot support and can capture full pages, viewports, or single elements.
-- Use `--color-scheme dark` or `--reduced-motion reduce` when you need to simulate a specific presentation mode.
-- Use `--hide-selector` or `--screenshot-style` to hide cookie banners, chat widgets, or noisy overlays during design capture.
-- For sensitive apps, prefer seeded users or local browser profiles over hard-coded real credentials.
+- Prefer this skill over raw HTTP fetching only when browser execution is truly needed.
+- Prefer seeded/test users over real credentials.
+- Treat screenshots, storage-state files, and extracted text as potentially sensitive artifacts.
+- Install Playwright once in the active environment before first use: `python -m playwright install chromium`.

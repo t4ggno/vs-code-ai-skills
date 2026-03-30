@@ -11,6 +11,7 @@ from openai import OpenAI
 from PIL import Image
 
 RESAMPLING = Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS
+SUPPORTED_OUTPUT_FORMATS = {"png", "jpg", "jpeg", "webp"}
 
 TILEABLE_PROMPT_SUFFIX = (
     "Create a seamless, tileable texture that can repeat infinitely for surfaces like "
@@ -30,6 +31,16 @@ def clamp(value, minimum, maximum):
     return max(minimum, min(maximum, value))
 
 
+def load_local_env() -> None:
+    env_paths = [Path.cwd() / ".env", Path(__file__).resolve().parent.parent / ".env"]
+    seen: set[Path] = set()
+    for env_path in env_paths:
+        if not env_path.exists() or env_path in seen:
+            continue
+        seen.add(env_path)
+        load_dotenv(env_path, override=False)
+
+
 def normalize_output_format(output_format):
     normalized = output_format.lower()
     if normalized == "jpg":
@@ -42,6 +53,26 @@ def get_mime_subtype(output_format):
     if normalized == "jpg":
         return "jpeg"
     return normalized
+
+
+def is_gpt_image_model(model_name):
+    return model_name.strip().lower().startswith("gpt-image")
+
+
+def build_image_generation_kwargs(args, prompt_text):
+    request = {
+        "model": args.model,
+        "prompt": prompt_text,
+        "n": 1,
+        "size": args.size,
+    }
+    if args.quality:
+        request["quality"] = args.quality
+    if is_gpt_image_model(args.model):
+        request["moderation"] = args.moderation
+        request["background"] = args.background
+        request["output_format"] = get_mime_subtype(args.output_format)
+    return request
 
 
 def extract_generated_image(image_result, timeout):
@@ -172,11 +203,26 @@ def load_openai_api_key():
     if api_key:
         return api_key
 
-    env_file = Path(__file__).resolve().parent.parent / ".env"
-    if env_file.exists():
-        load_dotenv(env_file, override=False)
+    load_local_env()
 
     return os.environ.get("OPENAI_API_KEY")
+
+
+def validate_args(parser, args):
+    if not args.prompt.strip():
+        parser.error("prompt must not be empty.")
+    if not args.criteria.strip():
+        parser.error("criteria must not be empty.")
+    if args.timeout < 1:
+        parser.error("--timeout must be at least 1.")
+    if args.poll_interval < 1:
+        parser.error("--poll-interval must be at least 1.")
+    if args.tile_preview_grid < 1:
+        parser.error("--tile-preview-grid must be at least 1.")
+    if args.tile_blend_ratio <= 0 or args.tile_blend_ratio > 0.5:
+        parser.error("--tile-blend-ratio must be greater than 0 and at most 0.5.")
+    if args.output_format.lower() not in SUPPORTED_OUTPUT_FORMATS:
+        parser.error("--output-format must be one of: png, jpg, jpeg, webp.")
 
 
 def main():
@@ -198,6 +244,7 @@ def main():
     parser.add_argument("--vision-model", default="gpt-5.4", dest="vision_model")
 
     args = parser.parse_args()
+    validate_args(parser, args)
 
     api_key = load_openai_api_key()
     if not api_key:
@@ -211,12 +258,7 @@ def main():
 
     print(f"Generating image with model '{args.model}'...")
     try:
-        response = client.images.generate(
-            model=args.model,
-            prompt=prompt_text,
-            n=1,
-            size=args.size
-        )
+        response = client.images.generate(**build_image_generation_kwargs(args, prompt_text))
     except Exception as e:
         print(f"Generation failed: {e}", file=sys.stderr)
         sys.exit(1)
@@ -248,10 +290,11 @@ def main():
         print(f"Encoding output image failed: {e}", file=sys.stderr)
         sys.exit(1)
 
-    os.makedirs(args.folder, exist_ok=True)
-    image_path = os.path.join(args.folder, f"generated_image.{args.output_format}")
+    destination_folder = Path(args.folder)
+    destination_folder.mkdir(parents=True, exist_ok=True)
+    image_path = destination_folder / f"generated_image.{args.output_format}"
 
-    with open(image_path, "wb") as f:
+    with image_path.open("wb") as f:
         f.write(output_image_data)
 
     preview_path = None
@@ -260,8 +303,8 @@ def main():
         try:
             preview_image = create_tile_preview(generated_image, args.tile_preview_grid)
             preview_image_data = encode_image(preview_image, args.output_format)
-            preview_path = os.path.join(args.folder, f"generated_image_tiled_preview.{args.output_format}")
-            with open(preview_path, "wb") as f:
+            preview_path = destination_folder / f"generated_image_tiled_preview.{args.output_format}"
+            with preview_path.open("wb") as f:
                 f.write(preview_image_data)
         except Exception as e:
             print(f"Building tile preview failed: {e}", file=sys.stderr)
@@ -301,12 +344,16 @@ def main():
                 }
             ]
         )
-        evaluation = vision_eval.choices[0].message.content
+        evaluation = (vision_eval.choices[0].message.content or "").strip()
     except Exception as e:
         print(f"Evaluation request failed: {e}", file=sys.stderr)
         sys.exit(1)
 
-    if evaluation.startswith("NO"):
+    if not evaluation:
+        print("Evaluation request failed: received an empty evaluation response.", file=sys.stderr)
+        sys.exit(1)
+
+    if evaluation.upper().startswith("NO"):
         print(f"Design mismatch: {evaluation}")
         sys.exit(1)
 

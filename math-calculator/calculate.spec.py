@@ -23,6 +23,11 @@ def test_calculate_supports_trigonometric_functions_and_constants() -> None:
     assert MODULE.calculate("cos(0)") == pytest.approx(1.0)
 
 
+def test_calculate_supports_math_namespace_and_additional_functions() -> None:
+    assert MODULE.calculate("math.factorial(5)") == 120
+    assert MODULE.calculate("round(math.pi, 2)") == 3.14
+
+
 def test_calculate_returns_error_string_for_invalid_expression() -> None:
     result = MODULE.calculate("1 / 0")
     assert result.startswith("Error evaluating expression:")
@@ -31,6 +36,11 @@ def test_calculate_returns_error_string_for_invalid_expression() -> None:
 def test_calculate_disallows_unsafe_builtins_access() -> None:
     result = MODULE.calculate("__import__('os').system('echo nope')")
     assert result.startswith("Error evaluating expression:")
+
+
+def test_calculate_disallows_private_or_non_math_attributes() -> None:
+    assert MODULE.calculate("math.__dict__").startswith("Error evaluating expression:")
+    assert MODULE.calculate("(1).__class__").startswith("Error evaluating expression:")
 
 
 def test_cli_prints_usage_when_expression_is_missing(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:

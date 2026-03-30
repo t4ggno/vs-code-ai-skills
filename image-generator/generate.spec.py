@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import base64
 from io import BytesIO
 from pathlib import Path
@@ -119,6 +120,61 @@ def test_build_prompt_helpers_include_tileable_suffixes() -> None:
     assert "seamless, tileable texture" in prompt
     assert "repeating material sample" in criteria
     assert "3x3 tiled preview" in evaluation_prompt
+
+
+def test_build_image_generation_kwargs_applies_model_specific_options() -> None:
+    gpt_image_args = SimpleNamespace(
+        model="gpt-image-1.5",
+        size="1024x1024",
+        quality="standard",
+        moderation="low",
+        background="transparent",
+        output_format="jpg",
+    )
+    dalle_args = SimpleNamespace(
+        model="dall-e-3",
+        size="1024x1024",
+        quality="hd",
+        moderation="low",
+        background="transparent",
+        output_format="png",
+    )
+
+    gpt_kwargs = MODULE.build_image_generation_kwargs(gpt_image_args, "prompt")
+    dalle_kwargs = MODULE.build_image_generation_kwargs(dalle_args, "prompt")
+
+    assert gpt_kwargs["moderation"] == "low"
+    assert gpt_kwargs["background"] == "transparent"
+    assert gpt_kwargs["output_format"] == "jpeg"
+    assert gpt_kwargs["quality"] == "standard"
+    assert "moderation" not in dalle_kwargs
+    assert "background" not in dalle_kwargs
+    assert "output_format" not in dalle_kwargs
+    assert dalle_kwargs["quality"] == "hd"
+
+
+def test_validate_args_rejects_invalid_values() -> None:
+    parser = argparse.ArgumentParser()
+    valid_args = SimpleNamespace(
+        prompt="prompt",
+        criteria="criteria",
+        timeout=180,
+        poll_interval=2,
+        tile_preview_grid=3,
+        tile_blend_ratio=0.125,
+        output_format="png",
+    )
+
+    MODULE.validate_args(parser, valid_args)
+
+    with pytest.raises(SystemExit):
+        MODULE.validate_args(parser, SimpleNamespace(**{**valid_args.__dict__, "prompt": "   "}))
+
+    with pytest.raises(SystemExit):
+        MODULE.validate_args(parser, SimpleNamespace(**{**valid_args.__dict__, "tile_blend_ratio": 0.0}))
+
+    with pytest.raises(SystemExit):
+        MODULE.validate_args(parser, SimpleNamespace(**{**valid_args.__dict__, "output_format": "bmp"}))
 
 
 def test_load_openai_api_key_prefers_environment_and_dotenv(

@@ -1,66 +1,33 @@
 ---
 name: uuid-generator
-description: Generates UUIDs with UUIDv4 as the default, supports other standard versions, and can create single values or batches when unique identifiers are needed.
+description: Generates UUID or GUID values across supported versions with batch and JSON output support. Use for IDs, fixtures, seeds, and deterministic namespace-based UUIDs. Do not use it for secrets, API tokens, or non-UUID identifier formats.
+argument-hint: <version/count> [namespace, name template, output format]
 ---
 
-# UUID Generator Skill
+# UUID Generator
 
-Use this skill when the user asks for UUIDs or GUIDs for IDs, fixtures, test data, seeds, or migration values.
+1. Use this skill when the task needs standard UUID or GUID values.
+2. Execute the local script [generate.py](./generate.py) instead of hand-writing example UUIDs.
+3. Use `UUIDv4` for normal random identifiers unless the user specifically needs deterministic or time-ordered variants.
+4. Use `UUIDv3` or `UUIDv5` with `--namespace` and `--name` when the user needs deterministic values.
+5. Use `--output json` when another tool needs structured metadata along with the generated UUIDs.
 
-## Defaults
+## Common invocations
 
-- Default UUID version: `UUIDv4`
-- Default batch size: `20`
-- Default output: one UUID per line
+- Default batch of UUIDv4 values:
+	`python ./generate.py`
+- Single UUIDv4:
+	`python ./generate.py --count 1`
+- UUIDv7 batch when supported by the runtime:
+	`python ./generate.py --version 7 --count 50`
+- Deterministic UUIDv5 values:
+	`python ./generate.py --version 5 --namespace dns --name example.com --count 3 --output json`
+- Indexed deterministic batch:
+	`python ./generate.py --version 5 --namespace dns --name user-{index} --count 3`
 
-## Supported versions
+## Guardrails
 
-- `UUIDv1`
-- `UUIDv3` (deterministic; requires namespace and name)
-- `UUIDv4`
-- `UUIDv5` (deterministic; requires namespace and name)
-- `UUIDv6` and `UUIDv7` when the local Python runtime supports them
-
-## Usage
-
-Run the generator script:
-
-```bash
-python c:/Users/ehrha/.copilot/skills/uuid-generator/generate.py
-```
-
-That default command prints 20 `UUIDv4` values.
-
-### Common examples
-
-Generate a single random UUIDv4:
-
-```bash
-python c:/Users/ehrha/.copilot/skills/uuid-generator/generate.py --count 1
-```
-
-Generate 50 UUIDv7 values when supported by the local Python runtime:
-
-```bash
-python c:/Users/ehrha/.copilot/skills/uuid-generator/generate.py --version 7 --count 50
-```
-
-Generate deterministic UUIDv5 values:
-
-```bash
-python c:/Users/ehrha/.copilot/skills/uuid-generator/generate.py --version 5 --namespace dns --name example.com --count 3 --output json
-```
-
-Generate a deterministic batch with indexed names:
-
-```bash
-python c:/Users/ehrha/.copilot/skills/uuid-generator/generate.py --version 5 --namespace dns --name user-{index} --count 3
-```
-
-## Notes
-
-- Use `--namespace` and `--name` only with `UUIDv3` or `UUIDv5`.
+- `--namespace` and `--name` are only for `UUIDv3` and `UUIDv5`.
 - `--namespace` accepts `dns`, `url`, `oid`, `x500`, or a literal UUID.
-- For `UUIDv3` and `UUIDv5`, include `{index}` in `--name` if you want unique deterministic values in a batch.
-- Use `--output json` when the user needs metadata along with the generated values.
-- Use `--uppercase` if the user explicitly wants uppercase UUID strings.
+- Use `--uppercase` only when the caller explicitly wants uppercase output.
+- Do not use UUIDs as a substitute for API tokens or secrets.

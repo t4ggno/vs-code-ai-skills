@@ -1,24 +1,25 @@
 ---
 name: math-calculator
-description: Safely computes complex mathematical formulas and algebraic equations dynamically using Python's math module to ensure accurate, non-hallucinated results.
+description: Safely evaluates precise mathematical expressions with Python instead of guessing. Use for arithmetic, trigonometry, logs, roots, and numeric verification. Do not use it for symbolic algebra, theorem proving, or handwritten equation OCR.
+argument-hint: <expression> [required precision or expected units]
 ---
 
 # Math Calculator
 
-Large Language Models (LLMs) can struggle with complex algebraic or high-precision mathematical calculations. This skill leverages Python to safely compute complex math formulas dynamically in the background.
+1. Use this skill whenever the answer must be numerically correct and should not be estimated from model intuition.
+2. Execute the local script [calculate.py](./calculate.py) with the exact expression.
+3. Prefer explicit functions and constants such as `sqrt(81)`, `sin(pi / 2)`, or `math.factorial(6)`.
+4. Use `**` for exponentiation instead of `^`.
+5. Treat the result as authoritative only for supported numeric expressions; if the task is symbolic, switch to a different approach.
 
-Use this skill when you need:
+## Common examples
 
-- Precise arithmetic operations.
-- Algebraic equation calculations.
-- Verifiable mathematical truths that shouldn't be guessed or hallucinated.
+- `python ./calculate.py "2 + 3 * 4"`
+- `python ./calculate.py "sqrt(81) + log10(1000)"`
+- `python ./calculate.py "math.factorial(6) / 3"`
 
-## Usage
+## Guardrails
 
-Use the `calculate.py` script:
-
-```bash
-python c:/Users/ehrha/.copilot/skills/math-calculator/calculate.py "<expression>"
-```
-
-The script uses Python's `math` module to safely compute results without hallucinating values.
+- This is for numeric evaluation, not symbolic manipulation.
+- Keep units and rounding expectations in the prompt if they matter.
+- Re-run with a simplified expression if the first one fails validation.

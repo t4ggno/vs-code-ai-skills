@@ -1,87 +1,33 @@
 ---
 name: random-generator
-description: Generates random test data such as strings, numbers, ranges, choices, and Faker-backed values for fixtures, seeds, mocks, and quick experiments.
+description: Generates random or seeded test data including strings, numbers, ranges, choices, and Faker-backed values. Use for fixtures, demos, mock payloads, or quick experiments. Do not use it for cryptographic secrets, passwords, or production identifiers.
+argument-hint: <kind> [count, constraints, format, seed]
 ---
 
-# Random Generator Skill
+# Random Generator
 
-Use this skill when you need batches of random data for fixtures, demos, tests, seeds, or quick throwaway datasets.
+1. Use this skill when the task needs sample or deterministic test data, not security-sensitive values.
+2. Execute the local script [generate.py](./generate.py) instead of manually inventing batches of mock values.
+3. Decide whether the result should be reproducible. If yes, set `--seed`.
+4. Pick the narrowest generator mode that fits the task: `string`, `integer`, `float`, `boolean`, `choice`, `range`, or `faker`.
+5. Use `--unique` only when uniqueness is truly required and the generator can satisfy it.
+6. Prefer `faker` for human-like names, emails, addresses, and text; prefer `string --regex` for validator-shaped IDs.
 
-It combines Python's standard library with:
+## Common invocations
 
-- `Faker` for realistic fake data like names, emails, addresses, profiles, and text
-- `rstr` for regex-driven string generation
+- Default random strings:
+	`python ./generate.py`
+- Deterministic integers:
+	`python ./generate.py integer --min-value 10 --max-value 99 --count 5 --seed demo-seed`
+- Regex-based IDs:
+	`python ./generate.py string --regex "[A-Z]{3}-[0-9]{4}" --count 5`
+- Fake names with Faker:
+	`python ./generate.py faker --provider name --locale en_US --count 10`
+- JSON output for downstream tooling:
+	`python ./generate.py faker --provider text --provider-args '[40]' --count 3 --output json`
 
-## Defaults
+## Guardrails
 
-- Default kind: `string`
-- Default batch size: `20`
-- Default output: one value per line
-
-## Supported kinds
-
-- `string`
-- `integer`
-- `float`
-- `boolean`
-- `choice`
-- `range`
-- `faker`
-
-## Usage
-
-Run the generator script:
-
-```bash
-python c:/Users/ehrha/.copilot/skills/random-generator/generate.py
-```
-
-That default command prints 20 random strings.
-
-### Common examples
-
-Generate 20 integers between 10 and 99:
-
-```bash
-python c:/Users/ehrha/.copilot/skills/random-generator/generate.py integer --min-value 10 --max-value 99
-```
-
-Generate 5 regex-based strings:
-
-```bash
-python c:/Users/ehrha/.copilot/skills/random-generator/generate.py string --regex "[A-Z]{3}-[0-9]{4}" --count 5
-```
-
-Generate a shuffled range:
-
-```bash
-python c:/Users/ehrha/.copilot/skills/random-generator/generate.py range --start 1 --stop 101 --shuffle --count 10
-```
-
-Generate fake names with Faker:
-
-```bash
-python c:/Users/ehrha/.copilot/skills/random-generator/generate.py faker --provider name --locale en_US --count 10
-```
-
-Generate fake text as JSON:
-
-```bash
-python c:/Users/ehrha/.copilot/skills/random-generator/generate.py faker --provider text --provider-args '[40]' --count 3 --output json
-```
-
-Generate deterministic values using a seed:
-
-```bash
-python c:/Users/ehrha/.copilot/skills/random-generator/generate.py string --seed demo-seed --count 5
-```
-
-## Notes
-
-- Use `--unique` when you want distinct values and the underlying generator can satisfy it.
-- `choice` generation requires `--items`.
-- `range` generation returns values from Python's `range(start, stop, step)` and truncates to `--count`.
-- `faker` generation uses the provider named by `--provider`; optional provider args/kwargs can be passed as JSON.
-- On PowerShell, wrap JSON passed to `--provider-args` or `--provider-kwargs` in single quotes.
-- `string --regex` requires `rstr` and is ideal for IDs, slugs, and validator-friendly samples.
-- `Faker` is excellent for realistic data; `Mimesis` is also a strong future option if you want even more schema-heavy or high-volume fake data generation.
+- Do not use this skill for passwords, API keys, salts, or security tokens.
+- Use `--output json` when another tool or script needs structured results.
+- Keep JSON arguments wrapped correctly in PowerShell when using `--provider-args` or `--provider-kwargs`.
