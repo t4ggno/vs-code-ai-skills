@@ -176,6 +176,38 @@ def execute_sqlalchemy(query: str, dsn: str, params: Any, limit: int) -> dict[st
         engine.dispose()
 
 
+def execute_query(args: argparse.Namespace) -> tuple[str, dict[str, Any]]:
+    query = validate_query(args.query, args.allow_write)
+    if args.sqlite_path:
+        return "sqlite", execute_sqlite(query, args.sqlite_path, args.params, args.limit, args.allow_write)
+
+    dsn = resolve_dsn(args)
+    return "sqlalchemy", execute_sqlalchemy(query, dsn, args.params, args.limit)
+
+
+def emit_json_result(engine_name: str, result: dict[str, Any]) -> None:
+    payload = {
+        "engine": engine_name,
+        "columns": result["columns"],
+        "rows": rows_to_json(result["columns"], result["rows"]),
+        "rowcount": result["rowcount"],
+        "truncated": result["truncated"],
+    }
+    print(json.dumps(payload, indent=2, ensure_ascii=False, default=str))
+
+
+def emit_table_result(limit: int, result: dict[str, Any]) -> None:
+    if not result["columns"]:
+        print(f"No tabular result. Rows affected: {result['rowcount']}")
+        return
+
+    print(render_markdown_table(result["columns"], result["rows"]))
+    if result["truncated"]:
+        print(f"\nRows shown: {limit} (truncated)")
+        return
+    print(f"\nRows shown: {result['rowcount']}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run a compact SQL query against SQLite or a DSN-backed database.")
     parser.add_argument("query", help="SQL query to execute.")
@@ -206,38 +238,16 @@ def main() -> int:
     validate_args(args, parser)
 
     try:
-        query = validate_query(args.query, args.allow_write)
-        if args.sqlite_path:
-            result = execute_sqlite(query, args.sqlite_path, args.params, args.limit, args.allow_write)
-            engine_name = "sqlite"
-        else:
-            dsn = resolve_dsn(args)
-            result = execute_sqlalchemy(query, dsn, args.params, args.limit)
-            engine_name = "sqlalchemy"
+        engine_name, result = execute_query(args)
     except (RuntimeError, sqlite3.DatabaseError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
     if args.output == "json":
-        payload = {
-            "engine": engine_name,
-            "columns": result["columns"],
-            "rows": rows_to_json(result["columns"], result["rows"]),
-            "rowcount": result["rowcount"],
-            "truncated": result["truncated"],
-        }
-        print(json.dumps(payload, indent=2, ensure_ascii=False, default=str))
+        emit_json_result(engine_name, result)
         return 0
 
-    if not result["columns"]:
-        print(f"No tabular result. Rows affected: {result['rowcount']}")
-        return 0
-
-    print(render_markdown_table(result["columns"], result["rows"]))
-    if result["truncated"]:
-        print(f"\nRows shown: {args.limit} (truncated)")
-    else:
-        print(f"\nRows shown: {result['rowcount']}")
+    emit_table_result(args.limit, result)
     return 0
 
 

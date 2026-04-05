@@ -89,6 +89,16 @@ def extract_generated_image(image_result, timeout):
     return response.content
 
 
+def decode_generated_image(image_data):
+    with Image.open(BytesIO(image_data)) as image:
+        return image.convert("RGBA")
+
+
+def save_bytes(destination_path, data):
+    destination_path.parent.mkdir(parents=True, exist_ok=True)
+    destination_path.write_bytes(data)
+
+
 def blend_pixel_pair(left_pixel, right_pixel, weight):
     blended_left = []
     blended_right = []
@@ -165,6 +175,21 @@ def save_image(image, destination, output_format):
     image_to_save.save(destination, format=normalized_format)
 
 
+def save_output_image(destination_folder, generated_image, output_format):
+    output_image_data = encode_image(generated_image, output_format)
+    image_path = destination_folder / f"generated_image.{output_format}"
+    save_bytes(image_path, output_image_data)
+    return image_path, output_image_data
+
+
+def build_and_save_tile_preview(destination_folder, generated_image, output_format, preview_grid):
+    preview_image = create_tile_preview(generated_image, preview_grid)
+    preview_image_data = encode_image(preview_image, output_format)
+    preview_path = destination_folder / f"generated_image_tiled_preview.{output_format}"
+    save_bytes(preview_path, preview_image_data)
+    return preview_path, preview_image_data
+
+
 def build_generation_prompt(prompt, criteria, tileable):
     prompt_text = prompt.strip()
     criteria_text = build_effective_criteria(criteria, tileable)
@@ -196,6 +221,45 @@ def build_evaluation_prompt(criteria, tileable, preview_grid):
         "Pay special attention to visible seams, edge continuity, repeating highlights, and border artifacts. "
         "Reply ONLY with 'YES' or 'NO: [Reason]'."
     )
+
+
+def build_vision_content(criteria, output_image_data, output_format, *, tileable, preview_grid, preview_image_data=None):
+    mime_subtype = get_mime_subtype(output_format)
+    content = [
+        {
+            "type": "text",
+            "text": build_evaluation_prompt(criteria, tileable, preview_grid),
+        },
+        {
+            "type": "image_url",
+            "image_url": {"url": f"data:image/{mime_subtype};base64,{base64.b64encode(output_image_data).decode('utf-8')}"},
+        },
+    ]
+
+    if preview_image_data is not None:
+        content.append(
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/{mime_subtype};base64,{base64.b64encode(preview_image_data).decode('utf-8')}"
+                },
+            }
+        )
+
+    return content
+
+
+def evaluate_generated_image(client, vision_model, content):
+    vision_eval = client.chat.completions.create(
+        model=vision_model,
+        messages=[
+            {
+                "role": "user",
+                "content": content
+            }
+        ]
+    )
+    return (vision_eval.choices[0].message.content or "").strip()
 
 
 def load_openai_api_key():
@@ -275,7 +339,7 @@ def main():
         sys.exit(1)
 
     try:
-        generated_image = Image.open(BytesIO(image_data)).convert("RGBA")
+        generated_image = decode_generated_image(image_data)
     except Exception as e:
         print(f"Processing image failed: {e}", file=sys.stderr)
         sys.exit(1)
@@ -284,67 +348,39 @@ def main():
         print("Applying seamless tile post-processing...")
         generated_image = apply_tileable_postprocess(generated_image, args.tile_blend_ratio)
 
+    destination_folder = Path(args.folder)
     try:
-        output_image_data = encode_image(generated_image, args.output_format)
+        image_path, output_image_data = save_output_image(destination_folder, generated_image, args.output_format)
     except Exception as e:
         print(f"Encoding output image failed: {e}", file=sys.stderr)
         sys.exit(1)
-
-    destination_folder = Path(args.folder)
-    destination_folder.mkdir(parents=True, exist_ok=True)
-    image_path = destination_folder / f"generated_image.{args.output_format}"
-
-    with image_path.open("wb") as f:
-        f.write(output_image_data)
 
     preview_path = None
     preview_image_data = None
     if args.tileable:
         try:
-            preview_image = create_tile_preview(generated_image, args.tile_preview_grid)
-            preview_image_data = encode_image(preview_image, args.output_format)
-            preview_path = destination_folder / f"generated_image_tiled_preview.{args.output_format}"
-            with preview_path.open("wb") as f:
-                f.write(preview_image_data)
+            preview_path, preview_image_data = build_and_save_tile_preview(
+                destination_folder,
+                generated_image,
+                args.output_format,
+                args.tile_preview_grid,
+            )
         except Exception as e:
             print(f"Building tile preview failed: {e}", file=sys.stderr)
             sys.exit(1)
 
     print(f"Evaluating image using '{args.vision_model}' against criteria: '{effective_criteria}'")
-    base64_image = base64.b64encode(output_image_data).decode('utf-8')
-    mime_subtype = get_mime_subtype(args.output_format)
-    content = [
-        {
-            "type": "text",
-            "text": build_evaluation_prompt(effective_criteria, args.tileable, args.tile_preview_grid),
-        },
-        {
-            "type": "image_url",
-            "image_url": {"url": f"data:image/{mime_subtype};base64,{base64_image}"},
-        },
-    ]
-
-    if preview_image_data:
-        content.append(
-            {
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:image/{mime_subtype};base64,{base64.b64encode(preview_image_data).decode('utf-8')}"
-                },
-            }
-        )
+    content = build_vision_content(
+        effective_criteria,
+        output_image_data,
+        args.output_format,
+        tileable=args.tileable,
+        preview_grid=args.tile_preview_grid,
+        preview_image_data=preview_image_data,
+    )
 
     try:
-        vision_eval = client.chat.completions.create(
-            model=args.vision_model,
-            messages=[
-                {
-                    "role": "user",
-                    "content": content
-                }
-            ]
-        )
-        evaluation = (vision_eval.choices[0].message.content or "").strip()
+        evaluation = evaluate_generated_image(client, args.vision_model, content)
     except Exception as e:
         print(f"Evaluation request failed: {e}", file=sys.stderr)
         sys.exit(1)

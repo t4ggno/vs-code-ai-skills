@@ -331,24 +331,31 @@ def generate_unique_values(generator: Callable[[], Any], count: int) -> list[Any
     raise RuntimeError("Could not generate enough unique values with the provided constraints.")
 
 
+def generate_counted_values(generator: Callable[[], Any], count: int, unique: bool) -> list[Any]:
+    if unique:
+        return generate_unique_values(generator, count)
+    return [generator() for _ in range(count)]
+
+
+def generate_faker_values(args: argparse.Namespace, fake_source: Any) -> list[Any]:
+    values = [generate_faker_value(args, fake_source) for _ in range(args.count)]
+    if args.unique and hasattr(fake_source, "clear"):
+        fake_source.clear()
+    return values
+
+
 def generate_values(args: argparse.Namespace) -> list[Any]:
     rng = build_rng(args.seed)
 
-    if args.kind == "string":
-        generator = lambda: generate_string(args, rng)
-        return generate_unique_values(generator, args.count) if args.unique else [generator() for _ in range(args.count)]
-
-    if args.kind == "integer":
-        generator = lambda: generate_integer(args, rng)
-        return generate_unique_values(generator, args.count) if args.unique else [generator() for _ in range(args.count)]
-
-    if args.kind == "float":
-        generator = lambda: generate_float(args, rng)
-        return generate_unique_values(generator, args.count) if args.unique else [generator() for _ in range(args.count)]
-
-    if args.kind == "boolean":
-        generator = lambda: generate_boolean(args, rng)
-        return generate_unique_values(generator, args.count) if args.unique else [generator() for _ in range(args.count)]
+    scalar_generators: dict[str, Callable[[], Any]] = {
+        "string": lambda: generate_string(args, rng),
+        "integer": lambda: generate_integer(args, rng),
+        "float": lambda: generate_float(args, rng),
+        "boolean": lambda: generate_boolean(args, rng),
+    }
+    scalar_generator = scalar_generators.get(args.kind)
+    if scalar_generator is not None:
+        return generate_counted_values(scalar_generator, args.count, args.unique)
 
     if args.kind == "choice":
         items = list(args.items)
@@ -356,17 +363,13 @@ def generate_values(args: argparse.Namespace) -> list[Any]:
             if args.count > len(items):
                 raise RuntimeError("Unique choice generation cannot return more values than provided items.")
             return rng.sample(items, args.count)
-        generator = lambda: generate_choice(args, rng)
-        return [generator() for _ in range(args.count)]
+        return generate_counted_values(lambda: generate_choice(args, rng), args.count, unique=False)
 
     if args.kind == "range":
         return generate_range_values(args, rng)
 
     fake_source = build_faker(args)
-    values = [generate_faker_value(args, fake_source) for _ in range(args.count)]
-    if args.unique and hasattr(fake_source, "clear"):
-        fake_source.clear()
-    return values
+    return generate_faker_values(args, fake_source)
 
 
 def format_plain_value(value: Any) -> str:

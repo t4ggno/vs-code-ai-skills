@@ -273,6 +273,45 @@ def serialize_response_body(response: requests.Response, max_chars: int) -> dict
     }
 
 
+def execute_request(session: requests.Session, args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any], requests.Response]:
+    auth_result = authenticate_session(session, args)
+    request_payload = build_request_payload(args, auth_result["token"])
+    response = session.request(args.method.upper(), args.url, **request_payload)
+    return auth_result, request_payload, response
+
+
+def build_output_payload(
+    args: argparse.Namespace,
+    response: requests.Response,
+    request_payload: dict[str, Any],
+    auth_result: dict[str, Any],
+    body_payload: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "request": {
+            "method": args.method.upper(),
+            "url": response.url,
+            "auth_mode": args.auth_mode,
+            "headers": redact_headers(request_payload["headers"]),
+            "query": request_payload["params"],
+            "json_body_supplied": "json" in request_payload,
+            "raw_body_supplied": "data" in request_payload,
+        },
+        "login": {
+            "used": auth_result["used"],
+            "token_found": bool(auth_result["token"]),
+            "cookie_count": auth_result["cookie_count"],
+        },
+        "response": {
+            "status": response.status_code,
+            "ok": response.ok,
+            "headers": redact_headers(dict(response.headers)),
+            "content_type": response.headers.get("Content-Type", ""),
+            **body_payload,
+        },
+    }
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Call an HTTP API with optional seed-user authentication.")
     parser.add_argument("method", help="HTTP method, for example GET or POST.")
@@ -321,9 +360,7 @@ def main() -> int:
     session = requests.Session()
 
     try:
-        auth_result = authenticate_session(session, args)
-        request_payload = build_request_payload(args, auth_result["token"])
-        response = session.request(args.method.upper(), args.url, **request_payload)
+        auth_result, request_payload, response = execute_request(session, args)
     except (RuntimeError, ValueError, requests.RequestException) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
@@ -333,29 +370,7 @@ def main() -> int:
         print(body_payload["body"])
         return 0 if response.ok else 1
 
-    output = {
-        "request": {
-            "method": args.method.upper(),
-            "url": response.url,
-            "auth_mode": args.auth_mode,
-            "headers": redact_headers(request_payload["headers"]),
-            "query": request_payload["params"],
-            "json_body_supplied": "json" in request_payload,
-            "raw_body_supplied": "data" in request_payload,
-        },
-        "login": {
-            "used": auth_result["used"],
-            "token_found": bool(auth_result["token"]),
-            "cookie_count": auth_result["cookie_count"],
-        },
-        "response": {
-            "status": response.status_code,
-            "ok": response.ok,
-            "headers": redact_headers(dict(response.headers)),
-            "content_type": response.headers.get("Content-Type", ""),
-            **body_payload,
-        },
-    }
+    output = build_output_payload(args, response, request_payload, auth_result, body_payload)
     print(json.dumps(output, indent=2, ensure_ascii=False))
     return 0 if response.ok else 1
 

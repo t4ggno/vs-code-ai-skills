@@ -15,6 +15,12 @@ CONTINUATION_TAIL_CHARS = 12000
 MAX_AUTOPILOT_CONTINUES = "200"
 
 
+def get_log_dir():
+    log_dir = Path.home() / ".copilot" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    return log_dir
+
+
 def build_task_prompt(user_task, previous_output, attempt_number):
     prompt = (
         f"{user_task}\n\n"
@@ -98,15 +104,11 @@ def build_subprocess_env():
 
 
 def get_wrapper_log_path():
-    log_dir = Path.home() / ".copilot" / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    return log_dir / "continuous-task-wrapper.log"
+    return get_log_dir() / "continuous-task-wrapper.log"
 
 
 def get_restart_state_path():
-    log_dir = Path.home() / ".copilot" / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    return log_dir / "continuous-task-last-output.txt"
+    return get_log_dir() / "continuous-task-last-output.txt"
 
 
 def print_diagnostics(log_path):

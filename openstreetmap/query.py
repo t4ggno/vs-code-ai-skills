@@ -98,6 +98,24 @@ def parse_response_content(response: requests.Response) -> Any:
         return response.text
 
 
+def build_endpoint_payload(
+    service: str,
+    endpoint: str,
+    request: dict[str, Any],
+    response_meta: dict[str, Any],
+    **extra: Any,
+) -> dict[str, Any]:
+    return {
+        "service": service,
+        "endpoint": endpoint,
+        "request": request,
+        "resolved_url": response_meta["url"],
+        "status": response_meta["status"],
+        "content_type": response_meta["content_type"],
+        **extra,
+    }
+
+
 class OpenStreetMapClient:
     def __init__(
         self,
@@ -1016,21 +1034,19 @@ def summarize_overpass_response(data: Any, max_preview_elements: int, max_body_c
 def handle_search(args: argparse.Namespace, client: OpenStreetMapClient) -> dict[str, Any]:
     params, query, structured = build_search_params(args)
     response = client.nominatim_request("/search", params)
-    return {
-        "service": "nominatim",
-        "endpoint": "search",
-        "request": {
+    return build_endpoint_payload(
+        "nominatim",
+        "search",
+        {
             "base_url": client.nominatim_base_url,
             "free_form_query": query,
             "structured_query": structured,
             "params": params,
         },
-        "resolved_url": response["url"],
-        "status": response["status"],
-        "content_type": response["content_type"],
-        "result_count": count_results(response["data"]),
-        "response": response["data"],
-    }
+        response,
+        result_count=count_results(response["data"]),
+        response=response["data"],
+    )
 
 
 def handle_verify(args: argparse.Namespace, client: OpenStreetMapClient) -> dict[str, Any]:
@@ -1079,10 +1095,10 @@ def handle_verify(args: argparse.Namespace, client: OpenStreetMapClient) -> dict
             "content_type": reverse_response["content_type"],
         }
 
-    return {
-        "service": "nominatim",
-        "endpoint": "verify",
-        "request": {
+    return build_endpoint_payload(
+        "nominatim",
+        "verify",
+        {
             "base_url": client.nominatim_base_url,
             "free_form_query": query,
             "structured_query": structured,
@@ -1095,55 +1111,49 @@ def handle_verify(args: argparse.Namespace, client: OpenStreetMapClient) -> dict
             "max_distance_meters": args.max_distance_meters,
             "expected_countrycode": args.expected_countrycode.lower() if args.expected_countrycode else None,
         },
-        "resolved_url": response["url"],
-        "status": response["status"],
-        "content_type": response["content_type"],
-        "matched": bool(enriched),
-        "candidate_count": len(enriched),
-        "best_match": best_match,
-        "closest_match_to_expected_coordinate": closest_match,
-        "expected_coordinate_reverse": expected_point_reverse,
-        "expected_coordinate_reverse_request": reverse_call,
-        "alternatives": enriched,
-    }
+        response,
+        matched=bool(enriched),
+        candidate_count=len(enriched),
+        best_match=best_match,
+        closest_match_to_expected_coordinate=closest_match,
+        expected_coordinate_reverse=expected_point_reverse,
+        expected_coordinate_reverse_request=reverse_call,
+        alternatives=enriched,
+    )
 
 
 def handle_reverse(args: argparse.Namespace, client: OpenStreetMapClient) -> dict[str, Any]:
     params = build_reverse_params(args)
     response = client.nominatim_request("/reverse", params)
-    return {
-        "service": "nominatim",
-        "endpoint": "reverse",
-        "request": {
+    return build_endpoint_payload(
+        "nominatim",
+        "reverse",
+        {
             "base_url": client.nominatim_base_url,
             "coordinate": {"lat": args.lat, "lon": args.lon},
             "params": params,
         },
-        "resolved_url": response["url"],
-        "status": response["status"],
-        "content_type": response["content_type"],
-        "result_count": count_results(response["data"]),
-        "response": response["data"],
-    }
+        response,
+        result_count=count_results(response["data"]),
+        response=response["data"],
+    )
 
 
 def handle_lookup(args: argparse.Namespace, client: OpenStreetMapClient) -> dict[str, Any]:
     params, osm_ids = build_lookup_params(args)
     response = client.nominatim_request("/lookup", params)
-    return {
-        "service": "nominatim",
-        "endpoint": "lookup",
-        "request": {
+    return build_endpoint_payload(
+        "nominatim",
+        "lookup",
+        {
             "base_url": client.nominatim_base_url,
             "osm_ids": osm_ids,
             "params": params,
         },
-        "resolved_url": response["url"],
-        "status": response["status"],
-        "content_type": response["content_type"],
-        "result_count": count_results(response["data"]),
-        "response": response["data"],
-    }
+        response,
+        result_count=count_results(response["data"]),
+        response=response["data"],
+    )
 
 
 def handle_details(args: argparse.Namespace, client: OpenStreetMapClient) -> dict[str, Any]:
@@ -1153,35 +1163,31 @@ def handle_details(args: argparse.Namespace, client: OpenStreetMapClient) -> dic
         )
     params = build_details_params(args)
     response = client.nominatim_request("/details", params)
-    return {
-        "service": "nominatim",
-        "endpoint": "details",
-        "request": {
+    return build_endpoint_payload(
+        "nominatim",
+        "details",
+        {
             "base_url": client.nominatim_base_url,
             "params": params,
         },
-        "resolved_url": response["url"],
-        "status": response["status"],
-        "content_type": response["content_type"],
-        "response": response["data"],
-    }
+        response,
+        response=response["data"],
+    )
 
 
 def handle_status(args: argparse.Namespace, client: OpenStreetMapClient) -> dict[str, Any]:
     params = {"format": args.format}
     response = client.nominatim_request("/status", params)
-    return {
-        "service": "nominatim",
-        "endpoint": "status",
-        "request": {
+    return build_endpoint_payload(
+        "nominatim",
+        "status",
+        {
             "base_url": client.nominatim_base_url,
             "params": params,
         },
-        "resolved_url": response["url"],
-        "status": response["status"],
-        "content_type": response["content_type"],
-        "response": response["data"],
-    }
+        response,
+        response=response["data"],
+    )
 
 
 def handle_boundaries(args: argparse.Namespace, client: OpenStreetMapClient) -> dict[str, Any]:
@@ -1193,20 +1199,18 @@ def handle_boundaries(args: argparse.Namespace, client: OpenStreetMapClient) -> 
     response = client.overpass_request(query)
     if not isinstance(response["data"], dict):
         raise RuntimeError("Expected JSON from Overpass for the boundaries query.")
-    return {
-        "service": "overpass",
-        "endpoint": "boundaries",
-        "request": {
+    return build_endpoint_payload(
+        "overpass",
+        "boundaries",
+        {
             "overpass_url": client.overpass_url,
             "coordinate": {"lat": args.lat, "lon": args.lon},
             "admin_levels": args.admin_level or [],
             "query": query,
         },
-        "resolved_url": response["url"],
-        "status": response["status"],
-        "content_type": response["content_type"],
+        response,
         **summarize_boundaries(response["data"], args.max_preview_results),
-    }
+    )
 
 
 def handle_nearby(args: argparse.Namespace, client: OpenStreetMapClient) -> dict[str, Any]:
@@ -1218,21 +1222,19 @@ def handle_nearby(args: argparse.Namespace, client: OpenStreetMapClient) -> dict
     response = client.overpass_request(query)
     if not isinstance(response["data"], dict):
         raise RuntimeError("Expected JSON from Overpass for the nearby query.")
-    return {
-        "service": "overpass",
-        "endpoint": "nearby",
-        "request": {
+    return build_endpoint_payload(
+        "overpass",
+        "nearby",
+        {
             "overpass_url": client.overpass_url,
             "coordinate": {"lat": args.lat, "lon": args.lon},
             "radius_meters": args.radius,
             "tags": args.tag,
             "query": query,
         },
-        "resolved_url": response["url"],
-        "status": response["status"],
-        "content_type": response["content_type"],
+        response,
         **summarize_nearby(response["data"], args.lat, args.lon, args.max_preview_results),
-    }
+    )
 
 
 def handle_overpass(args: argparse.Namespace, client: OpenStreetMapClient) -> dict[str, Any]:
@@ -1242,23 +1244,21 @@ def handle_overpass(args: argparse.Namespace, client: OpenStreetMapClient) -> di
         raise ValueError("--max-body-chars must be at least 1.")
     query = read_overpass_query(args.query, args.file)
     response = client.overpass_request(query)
-    return {
-        "service": "overpass",
-        "endpoint": "raw-query",
-        "request": {
+    return build_endpoint_payload(
+        "overpass",
+        "raw-query",
+        {
             "overpass_url": client.overpass_url,
             "query": query,
             "file": args.file,
         },
-        "resolved_url": response["url"],
-        "status": response["status"],
-        "content_type": response["content_type"],
-        "response": summarize_overpass_response(
+        response,
+        response=summarize_overpass_response(
             response["data"],
             args.max_preview_elements,
             args.max_body_chars,
         ),
-    }
+    )
 
 
 def build_client(args: argparse.Namespace) -> OpenStreetMapClient:

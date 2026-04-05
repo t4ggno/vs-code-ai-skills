@@ -10,7 +10,7 @@ A curated collection of Python-backed AI skills and helper scripts for GitHub Co
 
 The repo currently includes:
 
-- **11 self-contained skill folders** covering browser automation, image generation, math, maps, PDF extraction, API calls, SQL inspection, system diagnostics, UUID generation, and more
+- **14 self-contained skill folders** covering browser automation, image generation, image conversion, image effects, video conversion, math, maps, PDF extraction, API calls, SQL inspection, system diagnostics, UUID generation, and more
 - **One `SKILL.md` file per skill** with routing metadata and task-specific instructions
 - **One Python helper script per skill** that performs the actual work locally
 - **One pytest spec per helper script** so each skill can be validated independently
@@ -80,6 +80,10 @@ At the root, the repo includes:
 │   ├── SKILL.md
 │   ├── continuous_agent.py
 │   └── continuous_agent.spec.py
+├── image-effects/
+│   ├── SKILL.md
+│   ├── effects.py
+│   └── effects.spec.py
 ├── image-generator/
 │   ├── SKILL.md
 │   ├── generate.py
@@ -88,6 +92,14 @@ At the root, the repo includes:
 │   ├── SKILL.md
 │   ├── calculate.py
 │   └── calculate.spec.py
+├── media-converter-image/
+│   ├── SKILL.md
+│   ├── convert.py
+│   └── convert.spec.py
+├── media-converter-video/
+│   ├── SKILL.md
+│   ├── convert.py
+│   └── convert.spec.py
 ├── openstreetmap/
 │   ├── SKILL.md
 │   ├── query.py
@@ -120,19 +132,22 @@ At the root, the repo includes:
 
 ## Included skills
 
-| Skill | Main script | What it covers | Notable capabilities in this repo |
-| --- | --- | --- | --- |
-| `browser-scraper` | `scrape.py` | Browser-powered scraping for JavaScript-heavy or authenticated pages | Playwright runtime, auth reuse, screenshots, style snapshots |
-| `continuous-task` | `continuous_agent.py` | Fallback wrapper for exhaustive or continuous agent workflows | Long-running loop support, transcript tail recovery, CLI fallback guidance |
-| `image-generator` | `generate.py` | New image and seamless texture generation | OpenAI image generation, tileable mode, built-in vision evaluation |
-| `math-calculator` | `calculate.py` | Precise numeric evaluation | Python `math`-based expressions for reliable arithmetic and trig |
-| `openstreetmap` | `query.py` | Structured map and location queries | Nominatim search/reverse/verify plus Overpass nearby and raw queries |
-| `pdf-text-extractor` | `extract.py` | Text extraction from text-based PDFs | Page-range extraction and optional JSON output |
-| `random-generator` | `generate.py` | Sample and deterministic mock data | Strings, numbers, booleans, regex generation, Faker providers, seeding |
-| `rest-api-client` | `call_api.py` | Real HTTP API verification | Structured headers/body support, seeded login flow, bearer token env auth |
-| `sql-query-runner` | `query.py` | Compact SQL inspection against live databases | SQLite and DSN support, named params, read-only-by-default safety |
-| `system-info` | `info.py` | Local machine and interpreter inspection | OS, CPU, memory, and Python environment details |
-| `uuid-generator` | `generate.py` | Standard UUID/GUID generation | Batch output, JSON output, deterministic namespace-based variants |
+| Skill                   | Main script           | What it covers                                                       | Notable capabilities in this repo                                                                         |
+| ----------------------- | --------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `browser-scraper`       | `scrape.py`           | Browser-powered scraping for JavaScript-heavy or authenticated pages | Playwright runtime, auth reuse, screenshots, style snapshots                                              |
+| `continuous-task`       | `continuous_agent.py` | Fallback wrapper for exhaustive or continuous agent workflows        | Long-running loop support, transcript tail recovery, CLI fallback guidance                                |
+| `image-effects`         | `effects.py`          | Local image cleanup and effect pipelines                             | Background removal, transparent-edge trimming, blur, sharpen, color adjustments                           |
+| `image-generator`       | `generate.py`         | New image and seamless texture generation                            | OpenAI image generation, tileable mode, built-in vision evaluation                                        |
+| `math-calculator`       | `calculate.py`        | Precise numeric evaluation                                           | Python `math`-based expressions for reliable arithmetic and trig                                          |
+| `media-converter-image` | `convert.py`          | Common raster/icon image conversions                                 | PNG/JPEG/WEBP/AVIF/TIFF/BMP/ICO/ICNS conversions, animation-preserving output, optional SVG rasterization |
+| `media-converter-video` | `convert.py`          | Local video and animated preview conversion                          | MP4/WEBM/MOV/MKV/AVI conversion plus GIF/APNG export using bundled FFmpeg                                 |
+| `openstreetmap`         | `query.py`            | Structured map and location queries                                  | Nominatim search/reverse/verify plus Overpass nearby and raw queries                                      |
+| `pdf-text-extractor`    | `extract.py`          | Text extraction from text-based PDFs                                 | Page-range extraction and optional JSON output                                                            |
+| `random-generator`      | `generate.py`         | Sample and deterministic mock data                                   | Strings, numbers, booleans, regex generation, Faker providers, seeding                                    |
+| `rest-api-client`       | `call_api.py`         | Real HTTP API verification                                           | Structured headers/body support, seeded login flow, bearer token env auth                                 |
+| `sql-query-runner`      | `query.py`            | Compact SQL inspection against live databases                        | SQLite and DSN support, named params, read-only-by-default safety                                         |
+| `system-info`           | `info.py`             | Local machine and interpreter inspection                             | OS, CPU, memory, and Python environment details                                                           |
+| `uuid-generator`        | `generate.py`         | Standard UUID/GUID generation                                        | Batch output, JSON output, deterministic namespace-based variants                                         |
 
 ## Shared authoring patterns across the repo
 
@@ -160,7 +175,9 @@ The current `requirements.txt` includes:
 - `python-dotenv`
 - `Faker`
 - `rstr`
+- `imageio-ffmpeg`
 - `playwright`
+- `rembg[cpu]` (for Python `< 3.14`)
 - `SQLAlchemy`
 - `pytest`
 
@@ -176,7 +193,10 @@ The shared `conftest.py` exposes a module loader that imports skill scripts dire
 ### Notes for specific skills
 
 - `browser-scraper` depends on Playwright and typically needs a one-time browser install such as Chromium
+- `image-effects` uses `rembg` for local background removal and is most reliable on Python 3.12/3.11 today because of `onnxruntime` wheel availability
 - `image-generator` expects `OPENAI_API_KEY` to be available for live image generation
+- `media-converter-image` supports common raster/icon conversions out of the box and can optionally rasterize SVG input if CairoSVG is installed separately
+- `media-converter-video` uses `imageio-ffmpeg` to locate a local FFmpeg binary without requiring a separate system-wide install on most platforms
 - `openstreetmap` supports optional environment variables such as custom Nominatim or Overpass endpoints and a custom `User-Agent`
 - `rest-api-client` is designed to keep auth tokens and credentials in environment variables instead of chat history
 
@@ -200,6 +220,9 @@ You do not need to adopt the entire repository. You can copy a single folder suc
 
 - _"Capture a full-page screenshot of this authenticated dashboard and summarize the visible data."_
 - _"Generate a seamless basalt floor texture for a game prototype."_
+- _"Convert this PNG logo to a multi-size ICO for a Windows app."_
+- _"Convert this MP4 clip to a short GIF preview for chat."_
+- _"Remove the background from this product image and trim the empty edges."_
 - _"Evaluate this trig expression exactly instead of estimating it."_
 - _"Reverse geocode these coordinates and list nearby cafes."_
 - _"Extract pages 5 through 12 from this PDF and summarize them."_

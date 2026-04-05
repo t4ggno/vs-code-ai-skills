@@ -27,6 +27,9 @@ def load_pdf_reader() -> Any:
 
 
 def validate_page_range(start_page: int | None, end_page: int | None, total_pages: int) -> tuple[int, int]:
+    if total_pages < 1:
+        raise ValueError("The PDF does not contain any pages.")
+
     start_index = 0 if start_page is None else start_page - 1
     end_index = total_pages if end_page is None else end_page
 
@@ -109,4 +112,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    exit_code = main()
+    if exit_code != 0:
+        raise SystemExit(exit_code)
